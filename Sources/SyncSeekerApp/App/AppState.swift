@@ -167,6 +167,28 @@ final class AppState {
         selectedFolderPath = path
     }
 
+    // MARK: - File Actions
+
+    func trashFile(_ document: SyncSeeker.Document) throws {
+        let url = document.path
+
+        Task.detached {
+            var resultingURL: NSURL? = nil
+            do {
+                try FileManager.default.trashItem(at: url, resultingItemURL: &resultingURL)
+                await MainActor.run { [weak self] in
+                    guard let self else { return }
+                    if self.selectedDocument?.id == document.id {
+                        self.selectedDocument = nil
+                    }
+                    self.loadAll()
+                }
+            } catch {
+                print("Failed to move to trash: \(error)")
+            }
+        }
+    }
+
     // MARK: - Private
 
     private func loadFolders() {

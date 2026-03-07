@@ -12,7 +12,10 @@ struct SearchView: View {
         } content: {
             FileListView(
                 documents: state.displayedDocuments,
-                selection: $state.selectedDocument
+                selection: $state.selectedDocument,
+                onTrash: { doc in
+                    try? state.trashFile(doc)
+                }
             )
             .navigationTitle(sectionTitle)
             .searchable(text: $state.searchText, placement: .toolbar, prompt: "ファイル名・タグで検索...")

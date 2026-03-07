@@ -30,7 +30,7 @@ let package = Package(
         ),
         .testTarget(
             name: "SyncSeekerTests",
-            dependencies: ["SyncSeeker"],
+            dependencies: ["SyncSeeker", "SyncSeekerApp"],
             path: "Tests/SyncSeekerTests"
         )
     ]
