@@ -142,6 +142,30 @@ final class AppState {
         }
     }
 
+    // MARK: - File Actions
+
+    func renameFile(_ document: SyncSeeker.Document, to newName: String) throws {
+        let originalURL = document.path
+        let originalExtension = originalURL.pathExtension
+        let newExtension = (newName as NSString).pathExtension
+
+        var finalName = newName
+        if newExtension.isEmpty && !originalExtension.isEmpty {
+            finalName = (newName as NSString).appendingPathExtension(originalExtension) ?? newName
+        }
+
+        let newURL = originalURL.deletingLastPathComponent().appendingPathComponent(finalName)
+
+        guard originalURL != newURL else { return }
+
+        Task.detached {
+            try FileManager.default.moveItem(at: originalURL, to: newURL)
+            await MainActor.run {
+                self.loadAll()
+            }
+        }
+    }
+
     // MARK: - Filtering
 
     var displayedDocuments: [SyncSeeker.Document] {
