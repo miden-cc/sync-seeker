@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import OSLog
 import SyncSeeker
 
 #if os(macOS)
@@ -30,6 +31,7 @@ final class AppState {
         )
     }
 
+    private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "SyncSeeker", category: "AppState")
     private let fileService = LocalFileService()
     private let annotationService = XattrAnnotationService()
     private var fileWatcher: FileWatcherService?
@@ -57,7 +59,7 @@ final class AppState {
                 }
             }
         } catch {
-            print("Failed to start file watcher: \(error)")
+            logger.error("Failed to start file watcher: \(error)")
         }
     }
 
