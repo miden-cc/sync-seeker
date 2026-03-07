@@ -1,5 +1,10 @@
 import Foundation
 
+public enum LocalFileServiceError: Error {
+    case unsupportedFileType(FileType)
+    case encodingError(URL)
+}
+
 public struct LocalFileService: FileServiceProtocol {
 
     public init() {}
@@ -44,7 +49,15 @@ public struct LocalFileService: FileServiceProtocol {
     }
 
     public func readContent(of document: Document) throws -> String {
-        try String(contentsOf: document.path, encoding: .utf8)
+        switch document.fileType {
+        case .pdf, .richText:
+            throw LocalFileServiceError.unsupportedFileType(document.fileType)
+        case .markdown, .plainText, .unknown:
+            guard let content = try? String(contentsOf: document.path, encoding: .utf8) else {
+                throw LocalFileServiceError.encodingError(document.path)
+            }
+            return content
+        }
     }
 
     public func detectFileType(at path: URL) -> FileType {

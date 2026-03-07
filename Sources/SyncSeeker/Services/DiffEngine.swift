@@ -1,8 +1,10 @@
 import Foundation
 
-struct DiffEngine {
+public struct DiffEngine {
 
-    func computeDiff(source: FileManifest, destination: FileManifest) -> DiffResult {
+    public init() {}
+
+    public func computeDiff(source: FileManifest, destination: FileManifest) -> DiffResult {
         let sourcePaths = source.filePaths
         let destPaths = destination.filePaths
 

@@ -1,6 +1,6 @@
 import Foundation
 
-struct ManifestEntry: Equatable {
+public struct ManifestEntry: Equatable, Codable, Sendable {
     let relativePath: String
     let size: Int64
     let modifiedDate: Date

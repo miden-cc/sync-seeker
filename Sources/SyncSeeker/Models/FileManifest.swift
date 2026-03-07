@@ -1,15 +1,15 @@
 import Foundation
 
-struct FileManifest: Equatable {
-    let rootPath: URL
-    let entries: [ManifestEntry]
-    let createdAt: Date
+public struct FileManifest: Equatable, Codable {
+    public let rootPath: URL
+    public let entries: [ManifestEntry]
+    public let createdAt: Date
 
-    func entry(forPath path: String) -> ManifestEntry? {
+    public func entry(forPath path: String) -> ManifestEntry? {
         entries.first { $0.relativePath == path }
     }
 
-    var filePaths: Set<String> {
+    public var filePaths: Set<String> {
         Set(entries.map(\.relativePath))
     }
 }

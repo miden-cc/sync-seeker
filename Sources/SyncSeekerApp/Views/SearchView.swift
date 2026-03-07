@@ -72,14 +72,30 @@ struct SidebarView: View {
 
             Section("接続") {
                 HStack {
-                    Image(systemName: state.isConnected ? "cable.connector" : "cable.connector.slash")
-                        .foregroundStyle(state.isConnected ? .green : .secondary)
-                    Text(state.isConnected ? "USB 接続中" : "未接続")
+                    Image(systemName: state.menuBarState.iconName)
+                        .foregroundStyle(connectionColor(state.connectionState))
+                    Text(state.menuBarState.statusText)
+                        .font(.caption)
+                }
+                if case .transferring(let progress, let file) = state.transferState {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(file).font(.caption2).lineLimit(1)
+                        ProgressView(value: progress)
+                    }
                 }
             }
         }
         .listStyle(.sidebar)
         .navigationTitle("sync-seeker")
+    }
+
+    private func connectionColor(_ state: ConnectionState) -> Color {
+        switch state {
+        case .connected: return .green
+        case .connecting: return .yellow
+        case .error: return .red
+        case .disconnected: return .secondary
+        }
     }
 }
 #endif

@@ -1,6 +1,6 @@
 import Foundation
 
-struct DiffResult: Equatable {
+public struct DiffResult: Equatable {
     let added: [ManifestEntry]
     let modified: [ManifestEntry]
     let deleted: [ManifestEntry]

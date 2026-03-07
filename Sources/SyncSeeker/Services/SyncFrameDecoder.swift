@@ -13,6 +13,7 @@ public enum SyncFrameDecoderError: Error {
 
 public struct SyncHeader {
     public let fileCount: Int
+    public let deletionCount: Int
 }
 
 public struct DecodedFileFrame {
@@ -23,6 +24,7 @@ public struct DecodedFileFrame {
 
 public struct DecodedStream {
     public let files: [DecodedFileFrame]
+    public let deletions: [String]
 }
 
 // MARK: - Decoder
@@ -33,15 +35,19 @@ public enum SyncFrameDecoder {
     // MARK: - Header
 
     public static func decodeHeader(from data: Data) throws -> SyncHeader {
-        guard data.count >= 8 else {
-            throw SyncFrameDecoderError.dataTooShort(expected: 8, got: data.count)
+        guard data.count >= 4 else {
+            throw SyncFrameDecoderError.dataTooShort(expected: 12, got: data.count)
         }
         let magic = data.prefix(4)
         guard magic == Data("SYNC".utf8) else {
             throw SyncFrameDecoderError.invalidMagic
         }
+        guard data.count >= 12 else {
+            throw SyncFrameDecoderError.dataTooShort(expected: 12, got: data.count)
+        }
         let count = readUInt32(from: data, at: 4)
-        return SyncHeader(fileCount: Int(count))
+        let deletionCount = readUInt32(from: data, at: 8)
+        return SyncHeader(fileCount: Int(count), deletionCount: Int(deletionCount))
     }
 
     // MARK: - Done sentinel
@@ -82,10 +88,10 @@ public enum SyncFrameDecoder {
 
     // MARK: - Full stream
 
-    /// ヘッダー + ファイルフレーム群 + DONE のストリーム全体をデコードする。
+    /// ヘッダー + ファイルフレーム群 + DELT フレーム群 + DONE のストリーム全体をデコードする。
     public static func decodeStream(_ data: Data) throws -> DecodedStream {
         let header = try decodeHeader(from: data)
-        var offset = 8  // header size
+        var offset = 12  // header size
         var files: [DecodedFileFrame] = []
 
         for _ in 0..<header.fileCount {
@@ -101,7 +107,14 @@ public enum SyncFrameDecoder {
             files.append(frame)
         }
 
-        return DecodedStream(files: files)
+        var deletions: [String] = []
+        for _ in 0..<header.deletionCount {
+            let pathLen = Int(try read32(data, &offset))
+            let path = try readString(data, at: &offset, length: pathLen)
+            deletions.append(path)
+        }
+
+        return DecodedStream(files: files, deletions: deletions)
     }
 
     // MARK: - Private helpers

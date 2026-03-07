@@ -2,33 +2,52 @@ import Foundation
 import Network
 import SyncSeeker
 
+// MARK: - Model
+
+public struct ReceivedFile: Identifiable, Hashable, Sendable {
+    public let id: UUID
+    public let relativePath: String
+    public let url: URL
+    public let size: Int64
+    public let modifiedDate: Date
+
+    public var name: String { url.lastPathComponent }
+    public var fileExtension: String { url.pathExtension.lowercased() }
+}
+
+// MARK: - SyncListener
+
 /// iPad 側で usbmuxd 経由の接続（Macからの同期）を受け付けるリスナー
 @MainActor
-final class SyncListener: ObservableObject {
-    @Published var isListening = false
-    @Published var statusText = "Ready to receive sync..."
-    @Published var receivedFilesCount = 0
-    
-    // usbmuxd 経由で待ち受けるためには、iPad側は通常の localhost tcp ポートを開く
+public final class SyncListener: ObservableObject {
+    @Published public var isListening = false
+    @Published public var statusText = "Ready to receive sync..."
+    @Published public var receivedFiles: [ReceivedFile] = []
+
+    public var receivedFilesCount: Int { receivedFiles.count }
+
     private var listener: NWListener?
     private let port: NWEndpoint.Port = 2345
-    private let syncDirectory: URL
-    
-    init() {
-        // iPad のドキュメントディレクトリを同期先に設定
+    public let syncDirectory: URL
+
+    public init() {
         let fm = FileManager.default
         let docs = fm.urls(for: .documentDirectory, in: .userDomainMask)[0]
         syncDirectory = docs.appendingPathComponent("SyncSeeker_Received")
-        
+
         if !fm.fileExists(atPath: syncDirectory.path) {
             try? fm.createDirectory(at: syncDirectory, withIntermediateDirectories: true)
         }
+
+        scanDirectory()
     }
-    
-    func start() {
+
+    // MARK: - Public
+
+    public func start() {
         do {
             listener = try NWListener(using: .tcp, on: port)
-            
+
             listener?.stateUpdateHandler = { [weak self] state in
                 Task { @MainActor in
                     switch state {
@@ -46,77 +65,112 @@ final class SyncListener: ObservableObject {
                     }
                 }
             }
-            
+
             listener?.newConnectionHandler = { [weak self] connection in
                 Task { @MainActor in
                     self?.handleNewConnection(connection)
                 }
             }
-            
+
             listener?.start(queue: .global(qos: .userInitiated))
         } catch {
             statusText = "Failed to start listener: \(error.localizedDescription)"
         }
     }
-    
-    func stop() {
+
+    public func stop() {
         listener?.cancel()
         listener = nil
         isListening = false
     }
-    
+
+    // MARK: - Directory scan
+
+    /// 起動時・同期後に syncDirectory を走査してファイルリストを更新する
+    public func scanDirectory() {
+        let fm = FileManager.default
+        guard let enumerator = fm.enumerator(
+            at: syncDirectory,
+            includingPropertiesForKeys: [.fileSizeKey, .contentModificationDateKey, .isDirectoryKey],
+            options: .skipsHiddenFiles
+        ) else {
+            receivedFiles = []
+            return
+        }
+
+        var files: [ReceivedFile] = []
+        while let url = enumerator.nextObject() as? URL {
+            guard let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey, .contentModificationDateKey]),
+                  values.isDirectory != true else { continue }
+            files.append(ReceivedFile(
+                id: UUID(),
+                relativePath: String(url.path.dropFirst(syncDirectory.path.count + 1)),
+                url: url,
+                size: Int64(values.fileSize ?? 0),
+                modifiedDate: values.contentModificationDate ?? Date()
+            ))
+        }
+        receivedFiles = files.sorted { $0.relativePath < $1.relativePath }
+    }
+
+    // MARK: - Connection handling
+
     private func handleNewConnection(_ connection: NWConnection) {
         connection.start(queue: .global(qos: .userInitiated))
-        
-        Task { @MainActor in
-            statusText = "Receiving sync data from Mac..."
-        }
-        
+        statusText = "Receiving sync data from Mac..."
         receiveNextChunk(on: connection, accumulatedData: Data())
     }
-    
+
     private func receiveNextChunk(on connection: NWConnection, accumulatedData: Data) {
         connection.receive(minimumIncompleteLength: 1, maximumLength: 65536) { [weak self] content, _, isComplete, error in
-            guard let self = self else { return }
-            
+            guard let self else { return }
+
             var newData = accumulatedData
-            if let content = content {
-                newData.append(content)
-            }
-            
+            if let content { newData.append(content) }
+
             if isComplete || error != nil {
-                // 通信終了（DONE）またはエラーで切断された場合、溜まったデータを一気にデコード
                 Task { @MainActor in self.processReceivedData(newData) }
                 connection.cancel()
             } else {
-                // まだデータが続く場合は再帰的に受信を続ける
                 Task { @MainActor in self.receiveNextChunk(on: connection, accumulatedData: newData) }
             }
         }
     }
-    
+
     private func processReceivedData(_ data: Data) {
         Task { @MainActor in
             do {
                 if data.isEmpty { return }
-                
-                // ヘッダー + 全ファイルのデコードを試みる
+
                 let stream = try SyncFrameDecoder.decodeStream(data)
-                
                 let fm = FileManager.default
+
                 for fileFrame in stream.files {
                     let fileURL = syncDirectory.appendingPathComponent(fileFrame.relativePath)
-                    
                     let dir = fileURL.deletingLastPathComponent()
                     if !fm.fileExists(atPath: dir.path) {
                         try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
                     }
-                    
                     try fileFrame.fileData.write(to: fileURL)
-                    self.receivedFilesCount += 1
+                    if !fileFrame.xattrs.isEmpty {
+                        XattrIO.writeAll(fileFrame.xattrs, to: fileURL)
+                    }
                 }
-                
-                statusText = "Successfully received \(stream.files.count) files!"
+
+                for path in stream.deletions {
+                    let fileURL = syncDirectory.appendingPathComponent(path)
+                    try? fm.removeItem(at: fileURL)
+                }
+
+                scanDirectory()
+
+                let added = stream.files.count
+                let deleted = stream.deletions.count
+                if added > 0 || deleted > 0 {
+                    statusText = "Synced: +\(added) / -\(deleted) files"
+                } else {
+                    statusText = "Nothing changed."
+                }
             } catch {
                 statusText = "Sync error: \(error.localizedDescription)"
             }

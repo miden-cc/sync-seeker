@@ -1,9 +1,11 @@
 import Foundation
 import CryptoKit
 
-struct ManifestBuilder {
+public struct ManifestBuilder {
 
-    func buildManifest(at rootPath: URL) throws -> FileManifest {
+    public init() {}
+
+    public func buildManifest(at rootPath: URL) throws -> FileManifest {
         let fm = FileManager.default
         let resolvedRoot = rootPath.standardizedFileURL.resolvingSymlinksInPath()
         let rootPrefix = resolvedRoot.path + "/"

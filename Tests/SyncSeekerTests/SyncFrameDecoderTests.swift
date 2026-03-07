@@ -120,6 +120,28 @@ struct SyncFrameDecoderTests {
 
     // MARK: - Full stream roundtrip
 
+    @Test("Decode header includes deletion count")
+    func decodeHeaderWithDeletionCount() throws {
+        let data = SyncFrameEncoder.encodeHeader(fileCount: 2, deleteCount: 3)
+        let header = try SyncFrameDecoder.decodeHeader(from: data)
+        #expect(header.fileCount == 2)
+        #expect(header.deletionCount == 3)
+    }
+
+    @Test("DELT frame roundtrip via decodeStream")
+    func deletionRoundtrip() throws {
+        var stream = SyncFrameEncoder.encodeHeader(fileCount: 0, deleteCount: 2)
+        stream += SyncFrameEncoder.encodeDeletion(path: "old/file.txt")
+        stream += SyncFrameEncoder.encodeDeletion(path: "ドキュメント/古い.pdf")
+        stream += SyncFrameEncoder.encodeDone()
+
+        let result = try SyncFrameDecoder.decodeStream(stream)
+        #expect(result.files.isEmpty)
+        #expect(result.deletions.count == 2)
+        #expect(result.deletions[0] == "old/file.txt")
+        #expect(result.deletions[1] == "ドキュメント/古い.pdf")
+    }
+
     @Test("Full stream encode-decode roundtrip with multiple files")
     func fullStreamRoundtrip() throws {
         let entries: [(ManifestEntry, Data)] = [

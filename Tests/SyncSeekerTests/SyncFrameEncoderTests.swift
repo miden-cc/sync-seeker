@@ -20,10 +20,26 @@ struct SyncFrameEncoderTests {
         #expect(readLE(UInt32.self, from: data, at: 4) == 7)
     }
 
-    @Test("Header is exactly 8 bytes")
+    @Test("Header is exactly 12 bytes")
     func headerSize() {
         let data = SyncFrameEncoder.encodeHeader(fileCount: 0)
-        #expect(data.count == 8)
+        #expect(data.count == 12)
+    }
+
+    @Test("Header encodes delete count as little-endian uint32")
+    func headerDeleteCount() {
+        let data = SyncFrameEncoder.encodeHeader(fileCount: 0, deleteCount: 3)
+        #expect(readLE(UInt32.self, from: data, at: 8) == 3)
+    }
+
+    @Test("encodeDeletion encodes path length and UTF-8 bytes")
+    func deletionFrame() {
+        let path = "old/file.txt"
+        let frame = SyncFrameEncoder.encodeDeletion(path: path)
+        let pathLen = readLE(UInt32.self, from: frame, at: 0)
+        #expect(Int(pathLen) == path.utf8.count)
+        let pathBytes = frame.subdata(in: 4..<(4 + Int(pathLen)))
+        #expect(String(data: pathBytes, encoding: .utf8) == path)
     }
 
     // MARK: - Done sentinel

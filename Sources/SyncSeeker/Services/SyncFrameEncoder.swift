@@ -4,25 +4,38 @@ import Foundation
 ///
 /// ストリーム構造:
 /// ```
-/// HEADER  = magic(4:"SYNC") + file_count(4:UInt32 LE)
+/// HEADER  = magic(4:"SYNC") + file_count(4:UInt32 LE) + delt_count(4:UInt32 LE)
 /// FILE    = path_length(4:UInt32 LE) + path(UTF-8)
 ///           + file_size(8:UInt64 LE) + file_data
 ///           + xattr_length(4:UInt32 LE) + xattr_plist([String:Data])
+/// DELT    = path_length(4:UInt32 LE) + path(UTF-8)
 /// DONE    = "DONE"(4)
 /// ```
 enum SyncFrameEncoder {
 
     // MARK: - Header / Done
 
-    static func encodeHeader(fileCount: Int) -> Data {
-        var data = Data(capacity: 8)
+    static func encodeHeader(fileCount: Int, deleteCount: Int = 0) -> Data {
+        var data = Data(capacity: 12)
         data += "SYNC".data(using: .utf8)!
         data += uint32LE(UInt32(fileCount))
+        data += uint32LE(UInt32(deleteCount))
         return data
     }
 
     static func encodeDone() -> Data {
         return "DONE".data(using: .utf8)!
+    }
+
+    // MARK: - Deletion frame
+
+    /// 削除対象のパスをエンコードする。
+    static func encodeDeletion(path: String) -> Data {
+        let pathBytes = Data(path.utf8)
+        var frame = Data(capacity: 4 + pathBytes.count)
+        frame += uint32LE(UInt32(pathBytes.count))
+        frame += pathBytes
+        return frame
     }
 
     // MARK: - File frame
