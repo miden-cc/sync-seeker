@@ -174,6 +174,7 @@ struct ConnectionViewModelTests {
         vm.connectToDevice(Self.sampleDevice)
 
         #expect(vm.state == .error("Connection refused"))
+        #expect(vm.stateHistory == [.error("Connection refused")])
     }
 
     @Test("Disconnect resets state")
@@ -217,5 +218,6 @@ struct ConnectionViewModelTests {
         mock.simulateError("usbmuxd socket not found")
 
         #expect(vm.state == .error("usbmuxd socket not found"))
+        #expect(vm.stateHistory == [.connecting, .error("usbmuxd socket not found")])
     }
 }
