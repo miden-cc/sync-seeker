@@ -9,9 +9,6 @@ public struct FileListView: View {
     public var onDuplicate: ((Document) -> Void)?
     public var onMove: ((Document, URL) -> Void)?
 
-#if os(macOS)
-    @Environment(\.pasteboard) private var pasteboard
-#endif
     @State private var documentToTrash: Document?
     @State private var showTrashAlert = false
 
@@ -96,12 +93,7 @@ public struct FileListView: View {
 
 #if os(macOS)
     private func copyPath(for document: Document) {
-        copyPath(for: document, pasteboard: pasteboard)
-    }
-
-    internal func copyPath(for document: Document, pasteboard: PasteboardType) {
-        _ = pasteboard.clearContents()
-        _ = pasteboard.setString(document.path.path, forType: .string)
+        PasteboardService.copyPath(document.path)
     }
 #endif
 }
@@ -138,9 +130,11 @@ public struct FileRow: View {
                                 commitRename()
                             }
                         }
+#if os(macOS)
                         .onExitCommand {
                             cancelRename()
                         }
+#endif
                         .onAppear {
                             isFocused = true
                         }

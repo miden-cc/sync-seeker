@@ -219,7 +219,12 @@ struct ContentView: View {
         } content: {
             FileListView(
                 documents: state.displayedDocuments,
-                selection: Bindable(state).selectedDocument
+                selection: Bindable(state).selectedDocument,
+                onTrash: nil,
+                onRename: nil,
+                folders: [],
+                onDuplicate: nil,
+                onMove: nil
             )
             .navigationTitle(sectionTitle)
             .searchable(text: Bindable(state).searchText, prompt: "ファイル名・タグで検索...")
