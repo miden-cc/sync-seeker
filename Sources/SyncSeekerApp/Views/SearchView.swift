@@ -24,6 +24,13 @@ struct SearchView: View {
                     } catch {
                         print("Failed to rename file: \(error)")
                     }
+                },
+                folders: state.folders,
+                onDuplicate: { doc in
+                    Task { try? await state.duplicateFile(doc) }
+                },
+                onMove: { doc, destination in
+                    Task { try? await state.moveFile(doc, to: destination) }
                 }
             )
             .navigationTitle(sectionTitle)

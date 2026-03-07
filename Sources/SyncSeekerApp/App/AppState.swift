@@ -235,6 +235,27 @@ final class AppState {
         }
     }
 
+    func moveFile(_ document: SyncSeeker.Document, to destinationFolder: URL) async throws {
+        let sourceURL = document.path
+        let destinationURL = destinationFolder.appendingPathComponent(sourceURL.lastPathComponent)
+        try await Task.detached {
+            try FileManager.default.moveItem(at: sourceURL, to: destinationURL)
+        }.value
+        loadAll()
+    }
+
+    func duplicateFile(_ document: SyncSeeker.Document) async throws {
+        let sourceURL = document.path
+        let nameWithoutExt = sourceURL.deletingPathExtension().lastPathComponent
+        let ext = sourceURL.pathExtension
+        let newName = ext.isEmpty ? "\(nameWithoutExt) copy" : "\(nameWithoutExt) copy.\(ext)"
+        let destinationURL = sourceURL.deletingLastPathComponent().appendingPathComponent(newName)
+        try await Task.detached {
+            try FileManager.default.copyItem(at: sourceURL, to: destinationURL)
+        }.value
+        loadAll()
+    }
+
     // MARK: - Private
 
     private func loadFolders() {

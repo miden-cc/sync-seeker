@@ -5,6 +5,9 @@ public struct FileListView: View {
     @Binding public var selection: Document?
     public var onTrash: ((Document) -> Void)?
     public var onRename: ((Document, String) -> Void)?
+    public var folders: [Folder]
+    public var onDuplicate: ((Document) -> Void)?
+    public var onMove: ((Document, URL) -> Void)?
 
     @State private var documentToTrash: Document?
     @State private var showTrashAlert = false
@@ -13,12 +16,18 @@ public struct FileListView: View {
         documents: [Document],
         selection: Binding<Document?>,
         onTrash: ((Document) -> Void)? = nil,
-        onRename: ((Document, String) -> Void)? = nil
+        onRename: ((Document, String) -> Void)? = nil,
+        folders: [Folder] = [],
+        onDuplicate: ((Document) -> Void)? = nil,
+        onMove: ((Document, URL) -> Void)? = nil
     ) {
         self.documents = documents
         self._selection = selection
         self.onTrash = onTrash
         self.onRename = onRename
+        self.folders = folders
+        self.onDuplicate = onDuplicate
+        self.onMove = onMove
     }
 
     public var body: some View {
@@ -34,6 +43,25 @@ public struct FileListView: View {
                             Label("ゴミ箱に入れる", systemImage: "trash")
                         }
                         .keyboardShortcut(.delete, modifiers: .command)
+                    }
+                    if onDuplicate != nil {
+                        Button {
+                            onDuplicate?(doc)
+                        } label: {
+                            Label("複製", systemImage: "doc.on.doc")
+                        }
+                        .keyboardShortcut("d", modifiers: .command)
+                    }
+                    if onMove != nil && !folders.isEmpty {
+                        Menu("移動先…") {
+                            ForEach(folders) { folder in
+                                Button {
+                                    onMove?(doc, folder.path)
+                                } label: {
+                                    Label(folder.name, systemImage: "folder")
+                                }
+                            }
+                        }
                     }
                 }
         }
