@@ -1,12 +1,12 @@
 import Foundation
 
-enum ConnectionState: Equatable {
+public enum ConnectionState: Equatable {
     case disconnected
     case connecting
     case connected(USBDeviceInfo)
     case error(String)
 
-    static func == (lhs: ConnectionState, rhs: ConnectionState) -> Bool {
+    public static func == (lhs: ConnectionState, rhs: ConnectionState) -> Bool {
         switch (lhs, rhs) {
         case (.disconnected, .disconnected): return true
         case (.connecting, .connecting): return true

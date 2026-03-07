@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 import SyncSeeker
 
+#if os(macOS)
 struct FileListView: View {
     let documents: [SyncSeeker.Document]
     @Binding var selection: SyncSeeker.Document?
@@ -94,3 +95,4 @@ struct FileRow: View {
         }
     }
 }
+#endif

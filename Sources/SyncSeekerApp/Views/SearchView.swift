@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 import SyncSeeker
 
+#if os(macOS)
 struct SearchView: View {
     @Bindable var state: AppState
 
@@ -14,6 +15,7 @@ struct SearchView: View {
                 selection: $state.selectedDocument
             )
             .navigationTitle(sectionTitle)
+            .searchable(text: $state.searchText, placement: .toolbar, prompt: "ファイル名・タグで検索...")
         } detail: {
             if let doc = state.selectedDocument {
                 DocumentPreviewView(document: doc)
@@ -25,7 +27,6 @@ struct SearchView: View {
                 )
             }
         }
-        .searchable(text: $state.searchText, placement: .toolbar, prompt: "ファイル名・タグで検索...")
     }
 
     private var sectionTitle: String {
@@ -81,3 +82,4 @@ struct SidebarView: View {
         .navigationTitle("sync-seeker")
     }
 }
+#endif

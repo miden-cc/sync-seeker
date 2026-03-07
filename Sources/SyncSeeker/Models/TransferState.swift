@@ -1,6 +1,6 @@
 import Foundation
 
-enum TransferState: Equatable {
+public enum TransferState: Equatable {
     case idle
     case scanning
     case comparing
@@ -8,7 +8,7 @@ enum TransferState: Equatable {
     case completed(fileCount: Int, totalBytes: Int64)
     case error(String)
 
-    static func == (lhs: TransferState, rhs: TransferState) -> Bool {
+    public static func == (lhs: TransferState, rhs: TransferState) -> Bool {
         switch (lhs, rhs) {
         case (.idle, .idle): return true
         case (.scanning, .scanning): return true

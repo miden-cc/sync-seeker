@@ -1,9 +1,21 @@
 import SwiftUI
+#if canImport(AppKit)
+import AppKit
+#endif
+
 import SyncSeeker
 
-@main
+#if os(macOS)
 struct SyncSeekerMacApp: App {
     @State private var appState = AppState()
+
+    init() {
+        // swift run 等で直接 CLI から起動された場合でも、Dock に表示してキーボード入力を受け付けるようにする
+        #if canImport(AppKit)
+        NSApplication.shared.setActivationPolicy(.regular)
+        NSApplication.shared.activate(ignoringOtherApps: true)
+        #endif
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -12,7 +24,7 @@ struct SyncSeekerMacApp: App {
         }
         .defaultSize(width: 1100, height: 700)
 
-        MenuBarExtra("sync-seeker", systemImage: "cable.connector") {
+        MenuBarExtra("SyncSeeker", systemImage: appState.menuBarState.iconName) {
             MenuBarContent(state: appState)
         }
     }
@@ -21,30 +33,40 @@ struct SyncSeekerMacApp: App {
 struct MenuBarContent: View {
     @Bindable var state: AppState
 
+    private var bar: MenuBarState { state.menuBarState }
+
     var body: some View {
-        Label(
-            state.isConnected ? "USB 接続中" : "未接続",
-            systemImage: state.isConnected ? "checkmark.circle.fill" : "xmark.circle"
-        )
+        // Status
+        Label(bar.statusText, systemImage: bar.iconName)
 
-        Divider()
-
-        Text("\(state.allDocuments.count) ドキュメント")
-
-        Divider()
-
-        Button("フォルダを開く") {
-            NSWorkspace.shared.open(state.syncFolderPath)
-        }
-
-        Button("更新") {
-            state.refresh()
+        if let lastSync = bar.lastSyncFormatted {
+            Text("Last sync: \(lastSync)")
+                .font(.caption)
         }
 
         Divider()
 
-        Button("終了") {
-            NSApplication.shared.terminate(nil)
+        Text("\(state.allDocuments.count) documents")
+
+        Divider()
+
+        // Actions
+        ForEach(bar.availableActions, id: \.self) { action in
+            switch action {
+            case .syncNow:
+                Button("Sync Now") { state.startSync() }
+            case .cancelSync:
+                Button("Cancel Sync") { state.cancelSync() }
+            case .openApp:
+                Button("Open SyncSeeker") {
+                    NSWorkspace.shared.open(state.syncFolderPath)
+                }
+            case .quit:
+                Button("Quit") {
+                    NSApplication.shared.terminate(nil)
+                }
         }
     }
+    }
 }
+#endif

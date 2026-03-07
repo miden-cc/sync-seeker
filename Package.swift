@@ -10,7 +10,8 @@ let package = Package(
     ],
     products: [
         .library(name: "SyncSeeker", targets: ["SyncSeeker"]),
-        .executable(name: "SyncSeekerApp", targets: ["SyncSeekerApp"])
+        .executable(name: "SyncSeekerApp", targets: ["SyncSeekerApp"]),
+        .executable(name: "SyncSeekeriOS", targets: ["SyncSeekeriOS"])
     ],
     targets: [
         .target(
@@ -21,6 +22,11 @@ let package = Package(
             name: "SyncSeekerApp",
             dependencies: ["SyncSeeker"],
             path: "Sources/SyncSeekerApp"
+        ),
+        .executableTarget(
+            name: "SyncSeekeriOS",
+            dependencies: ["SyncSeeker"],
+            path: "Sources/SyncSeekeriOS"
         ),
         .testTarget(
             name: "SyncSeekerTests",

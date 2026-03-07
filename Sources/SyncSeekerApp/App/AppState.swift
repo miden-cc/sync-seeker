@@ -2,20 +2,40 @@ import Foundation
 import SwiftUI
 import SyncSeeker
 
+#if os(macOS)
 @Observable @MainActor
 final class AppState {
     var allDocuments: [SyncSeeker.Document] = []
     var selectedDocument: SyncSeeker.Document?
     var searchText: String = ""
-    var isConnected: Bool = false
     var folders: [SyncSeeker.Folder] = []
     var selectedFolderPath: URL?
     let syncFolderPath: URL
+
+    // Connection & transfer state
+    var connectionState: ConnectionState = .disconnected
+    var transferState: TransferState = .idle
+    var lastSyncDate: Date?
+
+    var isConnected: Bool {
+        if case .connected = connectionState { return true }
+        return false
+    }
+
+    var menuBarState: MenuBarState {
+        MenuBarState(
+            connection: connectionState,
+            transfer: transferState,
+            lastSyncDate: lastSyncDate
+        )
+    }
 
     private let fileService = LocalFileService()
     private let annotationService = XattrAnnotationService()
     private var fileWatcher: FileWatcherService?
     private var refreshTask: Task<Void, Never>?
+    private let usbMonitor = USBDeviceMonitor()
+    private var connectedDevice: USBDeviceInfo?
 
     init() {
         let home = FileManager.default.homeDirectoryForCurrentUser
@@ -23,7 +43,10 @@ final class AppState {
         ensureSyncFolder()
         loadAll()
         startFileWatcher()
+        startUSBMonitoring()
     }
+
+    // MARK: - File watcher
 
     private func startFileWatcher() {
         do {
@@ -41,32 +64,94 @@ final class AppState {
     private func scheduleRefresh() {
         refreshTask?.cancel()
         refreshTask = Task {
-            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5秒のデバウンス
+            try? await Task.sleep(nanoseconds: 500_000_000)
             if !Task.isCancelled {
                 self.loadAll()
             }
         }
     }
 
+    // MARK: - Load
+
     func loadAll() {
         loadFolders()
         loadDocumentsRecursive(at: syncFolderPath)
     }
 
-    func refresh() {
-        loadAll()
+    func refresh() { loadAll() }
+
+    // MARK: - USB monitoring
+
+    private func startUSBMonitoring() {
+        usbMonitor.onStateChanged = { [weak self] state in
+            Task { @MainActor in self?.connectionState = state }
+        }
+        usbMonitor.onDeviceConnected = { [weak self] device in
+            Task { @MainActor in
+                self?.connectedDevice = device
+                self?.connectionState = .connected(device)
+                // usbmuxd がデバイスを認識しきるまで少し待つ
+                try? await Task.sleep(for: .seconds(1.5))
+                self?.startAutoSync()
+            }
+        }
+        usbMonitor.onDeviceDisconnected = { [weak self] _ in
+            Task { @MainActor in
+                self?.connectedDevice = nil
+                self?.connectionState = .disconnected
+            }
+        }
+        usbMonitor.startMonitoring()
     }
+
+    // MARK: - Sync actions
+
+    func startSync() {
+        guard let device = connectedDevice else {
+            transferState = .error("デバイスが接続されていません")
+            return
+        }
+        transferState = .scanning
+        Task.detached { [weak self] in
+            guard let self else { return }
+            do {
+                let sender = FileSender()
+                let count = try sender.send(to: device, from: syncFolderPath)
+                await MainActor.run {
+                    self.transferState = .completed(fileCount: count, totalBytes: 0)
+                    self.lastSyncDate = Date()
+                }
+            } catch {
+                await MainActor.run {
+                    self.transferState = .error(error.localizedDescription)
+                }
+            }
+        }
+    }
+
+    func cancelSync() {
+        transferState = .idle
+    }
+
+    private func startAutoSync() {
+        switch transferState {
+        case .idle, .completed:
+            startSync()
+        default:
+            break  // scanning / transferring / error 中はスキップ
+        }
+    }
+
+    // MARK: - Filtering
 
     var displayedDocuments: [SyncSeeker.Document] {
         var docs = allDocuments
 
-        // フォルダフィルタ
         if let folderPath = selectedFolderPath {
             let prefix = folderPath.path + "/"
             docs = docs.filter { $0.path.path.hasPrefix(prefix) || $0.path.deletingLastPathComponent().path == folderPath.path }
         }
 
-        // 検索フィルタ
         if !searchText.isEmpty {
             let query = searchText.lowercased()
             docs = docs.filter { doc in
@@ -82,12 +167,11 @@ final class AppState {
         selectedFolderPath = path
     }
 
+    // MARK: - Private
+
     private func loadFolders() {
-        do {
-            folders = try fileService.listFolders(at: syncFolderPath)
-        } catch {
-            folders = []
-        }
+        do { folders = try fileService.listFolders(at: syncFolderPath) }
+        catch { folders = [] }
     }
 
     private func loadDocumentsRecursive(at path: URL) {
@@ -105,9 +189,7 @@ final class AppState {
         while let url = enumerator.nextObject() as? URL {
             guard let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey, .contentModificationDateKey]),
                   values.isDirectory != true else { continue }
-
             let tags = (try? annotationService.readTags(at: url)) ?? []
-
             docs.append(SyncSeeker.Document(
                 name: url.lastPathComponent,
                 path: url,
@@ -117,7 +199,6 @@ final class AppState {
                 tags: tags
             ))
         }
-
         allDocuments = docs.sorted { $0.name < $1.name }
     }
 
@@ -128,3 +209,4 @@ final class AppState {
         }
     }
 }
+#endif

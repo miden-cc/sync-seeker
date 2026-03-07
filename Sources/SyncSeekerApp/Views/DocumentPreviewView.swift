@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 import SyncSeeker
 
+#if os(macOS)
 struct DocumentPreviewView: View {
     let document: SyncSeeker.Document
     @State private var textContent: String?
@@ -125,3 +126,4 @@ struct FlowLayout: Layout {
         return (CGSize(width: maxWidth, height: y + rowHeight), positions)
     }
 }
+#endif

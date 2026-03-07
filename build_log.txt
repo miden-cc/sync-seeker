@@ -1,0 +1,94 @@
+[0/1] Planning build
+Building for debugging...
+[0/1] Write swift-version--58304C5D6DBC2206.txt
+[2/41] Compiling SyncSeeker SyncFrameDecoder.swift
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx15.0'
+[3/41] Compiling SyncSeeker SyncFrameEncoder.swift
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx15.0'
+[4/41] Compiling SyncSeeker TransportProtocol.swift
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx15.0'
+[5/41] Compiling SyncSeeker USBConnectionProtocol.swift
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx15.0'
+[6/41] Compiling SyncSeeker USBMuxdConnection.swift
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx15.0'
+[7/41] Compiling SyncSeeker UsbmuxdPacket.swift
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx15.0'
+[8/41] Compiling SyncSeeker UsbmuxdSocketProtocol.swift
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx15.0'
+[9/41] Compiling SyncSeeker VectorMath.swift
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx15.0'
+[10/41] Compiling SyncSeeker VectorStore.swift
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx15.0'
+[11/41] Compiling SyncSeeker VisionOCRService.swift
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx15.0'
+error: emit-module command failed with exit code 1 (use -v to see invocation)
+[12/46] Emitting module SyncSeeker
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx15.0'
+[13/46] Compiling SyncSeeker ConnectionState.swift
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx15.0'
+[14/46] Compiling SyncSeeker DiffResult.swift
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx15.0'
+[15/46] Compiling SyncSeeker Document.swift
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx15.0'
+[16/46] Compiling SyncSeeker DocumentSummary.swift
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx15.0'
+[17/46] Compiling SyncSeeker FileManifest.swift
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx15.0'
+[18/46] Compiling SyncSeeker Folder.swift
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx15.0'
+[19/46] Compiling SyncSeeker ManifestEntry.swift
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx15.0'
+[20/46] Compiling SyncSeeker SearchQuery.swift
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx15.0'
+[21/46] Compiling SyncSeeker TransferState.swift
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx15.0'
+[22/46] Compiling SyncSeeker USBDeviceInfo.swift
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx15.0'
+[23/46] Compiling SyncSeeker AnnotationServiceProtocol.swift
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx15.0'
+[24/46] Compiling SyncSeeker AppIntentHandler.swift
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx15.0'
+[25/46] Compiling SyncSeeker PDFHighlightService.swift
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx15.0'
+[26/46] Compiling SyncSeeker QUICTransport.swift
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx15.0'
+[27/46] Compiling SyncSeeker QuickLookPreviewGenerator.swift
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx15.0'
+[28/46] Compiling SyncSeeker ShortcutActions.swift
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx15.0'
+[29/46] Compiling SyncSeeker SpotlightIndexService.swift
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx15.0'
+[30/46] Compiling SyncSeeker BidirectionalSyncEngine.swift
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx15.0'
+[31/46] Compiling SyncSeeker DataChannelProtocol.swift
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx15.0'
+[32/46] Compiling SyncSeeker DiffEngine.swift
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx15.0'
+[33/46] Compiling SyncSeeker DocumentEmbeddingService.swift
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx15.0'
+[34/46] Compiling SyncSeeker FileServiceProtocol.swift
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx15.0'
+[35/46] Compiling SyncSeeker FileWatcherService.swift
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx15.0'
+[36/46] Compiling SyncSeeker FoundationModelsIntelligenceService.swift
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx15.0'
+[37/46] Compiling SyncSeeker IntelligenceResponseParser.swift
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx15.0'
+[38/46] Compiling SyncSeeker IntelligenceServiceProtocol.swift
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx15.0'
+[39/46] Compiling SyncSeeker LocalFileService.swift
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx15.0'
+[40/46] Compiling SyncSeeker ManifestBuilder.swift
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx15.0'
+[41/46] Compiling SyncSeeker MenuBarState.swift
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx15.0'
+[42/46] Compiling SyncSeeker WidgetDataProvider.swift
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx15.0'
+[43/46] Compiling SyncSeeker XattrAnnotationService.swift
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx15.0'
+[44/46] Compiling SyncSeeker ConnectionViewModel.swift
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx15.0'
+[45/46] Compiling SyncSeeker IntelligenceViewModel.swift
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx15.0'
+[46/46] Compiling SyncSeeker TransferViewModel.swift
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-macosx15.0'
