@@ -5,6 +5,8 @@ import SyncSeeker
 #if os(macOS)
 struct SearchView: View {
     @Bindable var state: AppState
+    @State private var showingNewFolderAlert = false
+    @State private var newFolderName = "New Folder"
 
     var body: some View {
         NavigationSplitView {
@@ -35,6 +37,24 @@ struct SearchView: View {
                     systemImage: "doc.text.magnifyingglass",
                     description: Text("左のリストからドキュメントを選んでください")
                 )
+            }
+        }
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    newFolderName = "New Folder"
+                    showingNewFolderAlert = true
+                } label: {
+                    Label("New Folder", systemImage: "folder.badge.plus")
+                }
+                .keyboardShortcut("n", modifiers: [.shift, .command])
+            }
+        }
+        .alert("New Folder", isPresented: $showingNewFolderAlert) {
+            TextField("Folder Name", text: $newFolderName)
+            Button("Cancel", role: .cancel) { }
+            Button("Create") {
+                try? state.createFolder(named: newFolderName, inside: state.selectedFolderPath)
             }
         }
     }

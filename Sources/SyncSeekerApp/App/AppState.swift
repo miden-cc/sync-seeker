@@ -166,6 +166,26 @@ final class AppState {
         }
     }
 
+    // MARK: - Folder Creation
+
+    func createFolder(named name: String, inside parent: URL? = nil) throws {
+        var baseName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if baseName.isEmpty { baseName = "New Folder" }
+
+        let parentURL = parent ?? syncFolderPath
+        var targetURL = parentURL.appendingPathComponent(baseName)
+
+        let fm = FileManager.default
+        var counter = 2
+        while fm.fileExists(atPath: targetURL.path) {
+            targetURL = parentURL.appendingPathComponent("\(baseName) \(counter)")
+            counter += 1
+        }
+
+        try fm.createDirectory(at: targetURL, withIntermediateDirectories: true)
+        loadAll()
+    }
+
     // MARK: - Filtering
 
     var displayedDocuments: [SyncSeeker.Document] {
