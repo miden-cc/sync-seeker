@@ -4,6 +4,7 @@ public struct FileListView: View {
     public let documents: [Document]
     @Binding public var selection: Document?
     public var onTrash: ((Document) -> Void)?
+    public var onRename: ((Document, String) -> Void)?
 
     @State private var documentToTrash: Document?
     @State private var showTrashAlert = false
@@ -11,16 +12,18 @@ public struct FileListView: View {
     public init(
         documents: [Document],
         selection: Binding<Document?>,
-        onTrash: ((Document) -> Void)? = nil
+        onTrash: ((Document) -> Void)? = nil,
+        onRename: ((Document, String) -> Void)? = nil
     ) {
         self.documents = documents
         self._selection = selection
         self.onTrash = onTrash
+        self.onRename = onRename
     }
 
     public var body: some View {
         List(documents, selection: $selection) { doc in
-            FileRow(document: doc)
+            FileRow(document: doc, onRename: onRename)
                 .tag(doc)
                 .contextMenu {
                     if onTrash != nil {
@@ -56,9 +59,15 @@ public struct FileListView: View {
 
 public struct FileRow: View {
     public let document: Document
+    public var onRename: ((Document, String) -> Void)?
 
-    public init(document: Document) {
+    @State private var isEditing = false
+    @State private var editName = ""
+    @FocusState private var isFocused: Bool
+
+    public init(document: Document, onRename: ((Document, String) -> Void)? = nil) {
         self.document = document
+        self.onRename = onRename
     }
 
     public var body: some View {
@@ -68,8 +77,31 @@ public struct FileRow: View {
                 .font(.title2)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(document.name)
-                    .lineLimit(1)
+                if isEditing {
+                    TextField("ファイル名", text: $editName)
+                        .focused($isFocused)
+                        .textFieldStyle(.roundedBorder)
+                        .onSubmit {
+                            commitRename()
+                        }
+                        .onChange(of: isFocused) { focused in
+                            if !focused {
+                                commitRename()
+                            }
+                        }
+                        .onExitCommand {
+                            cancelRename()
+                        }
+                        .onAppear {
+                            isFocused = true
+                        }
+                } else {
+                    Text(document.name)
+                        .lineLimit(1)
+                        .onTapGesture(count: 2) {
+                            startEditing()
+                        }
+                }
 
                 HStack(spacing: 8) {
                     Text(formattedSize)
@@ -95,6 +127,25 @@ public struct FileRow: View {
             }
         }
         .padding(.vertical, 2)
+    }
+
+    private func startEditing() {
+        if onRename == nil { return }
+        let nameWithoutExt = (document.name as NSString).deletingPathExtension
+        editName = nameWithoutExt
+        isEditing = true
+    }
+
+    private func commitRename() {
+        guard isEditing else { return }
+        isEditing = false
+        if !editName.isEmpty && editName != (document.name as NSString).deletingPathExtension {
+            onRename?(document, editName)
+        }
+    }
+
+    private func cancelRename() {
+        isEditing = false
     }
 
     private var formattedSize: String {

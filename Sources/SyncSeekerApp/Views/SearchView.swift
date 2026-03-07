@@ -15,6 +15,13 @@ struct SearchView: View {
                 selection: $state.selectedDocument,
                 onTrash: { doc in
                     try? state.trashFile(doc)
+                },
+                onRename: { doc, newName in
+                    do {
+                        try state.renameFile(doc, to: newName)
+                    } catch {
+                        print("Failed to rename file: \(error)")
+                    }
                 }
             )
             .navigationTitle(sectionTitle)
