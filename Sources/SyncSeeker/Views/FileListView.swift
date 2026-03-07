@@ -3,16 +3,44 @@ import SwiftUI
 public struct FileListView: View {
     public let documents: [Document]
     @Binding public var selection: Document?
+    public var onTrash: ((Document) -> Void)?
 
-    public init(documents: [Document], selection: Binding<Document?>) {
+    @State private var documentToTrash: Document?
+    @State private var showTrashAlert = false
+
+    public init(
+        documents: [Document],
+        selection: Binding<Document?>,
+        onTrash: ((Document) -> Void)? = nil
+    ) {
         self.documents = documents
         self._selection = selection
+        self.onTrash = onTrash
     }
 
     public var body: some View {
         List(documents, selection: $selection) { doc in
             FileRow(document: doc)
                 .tag(doc)
+                .contextMenu {
+                    if onTrash != nil {
+                        Button(role: .destructive) {
+                            documentToTrash = doc
+                            showTrashAlert = true
+                        } label: {
+                            Label("ゴミ箱に入れる", systemImage: "trash")
+                        }
+                        .keyboardShortcut(.delete, modifiers: .command)
+                    }
+                }
+        }
+        .alert("ゴミ箱に入れますか？", isPresented: $showTrashAlert, presenting: documentToTrash) { doc in
+            Button("キャンセル", role: .cancel) {}
+            Button("ゴミ箱に入れる", role: .destructive) {
+                onTrash?(doc)
+            }
+        } message: { doc in
+            Text("「\(doc.name)」をゴミ箱に移動します。")
         }
         .overlay {
             if documents.isEmpty {
