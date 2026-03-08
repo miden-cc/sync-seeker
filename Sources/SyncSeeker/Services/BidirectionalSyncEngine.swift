@@ -3,17 +3,17 @@ import Foundation
 // MARK: - Models
 
 /// 双方向同期の計画。Mac → iPad と iPad → Mac の両方の差分 + コンフリクトを含む。
-struct BidirectionalSyncPlan {
-    let toIPad: DiffResult
-    let toMac: DiffResult
-    let conflicts: [SyncConflict]
+public struct BidirectionalSyncPlan {
+    public let toIPad: DiffResult
+    public let toMac: DiffResult
+    public let conflicts: [SyncConflict]
 }
 
 /// 両デバイスで同じファイルが異なる内容に変更された場合のコンフリクト。
-struct SyncConflict: Equatable {
-    let path: String
-    let macEntry: ManifestEntry
-    let iPadEntry: ManifestEntry
+public struct SyncConflict: Equatable {
+    public let path: String
+    public let macEntry: ManifestEntry
+    public let iPadEntry: ManifestEntry
 }
 
 /// コンフリクト解決戦略。
@@ -33,14 +33,16 @@ struct ConflictResolution {
 // MARK: - Engine
 
 /// Mac ↔ iPad 双方向同期のマージロジック。
-struct BidirectionalSyncEngine {
+public struct BidirectionalSyncEngine {
+
+    public init() {}
 
     /// 双方のマニフェストと最終同期時刻から同期計画を生成する。
     /// - Parameters:
     ///   - mac: Mac 側のファイルマニフェスト
     ///   - iPad: iPad 側のファイルマニフェスト
     ///   - lastSync: 前回の同期完了時刻（初回同期の場合は nil）
-    func computeSyncPlan(mac: FileManifest, iPad: FileManifest, lastSync: Date?) -> BidirectionalSyncPlan {
+    public func computeSyncPlan(mac: FileManifest, iPad: FileManifest, lastSync: Date?) -> BidirectionalSyncPlan {
         let macPaths  = mac.filePaths
         let iPadPaths = iPad.filePaths
 
@@ -52,9 +54,20 @@ struct BidirectionalSyncEngine {
         let addToIPad = macOnly.compactMap { mac.entry(forPath: $0) }
             .sorted { $0.relativePath < $1.relativePath }
 
-        // iPad-only files → pull to Mac (if newer than lastSync or no lastSync)
-        let addToMac = iPadOnly.compactMap { iPad.entry(forPath: $0) }
-            .sorted { $0.relativePath < $1.relativePath }
+        // iPad-only files
+        var addToMac: [ManifestEntry] = []
+        var delToIPad: [ManifestEntry] = []
+
+        for p in iPadOnly {
+            guard let entry = iPad.entry(forPath: p) else { continue }
+            // If it's newer than lastSync (or no lastSync), iPad created it -> pull to Mac
+            if lastSync == nil || entry.modifiedDate > lastSync! {
+                addToMac.append(entry)
+            } else {
+                // Older than lastSync -> Mac deleted/renamed it -> delete from iPad
+                delToIPad.append(entry)
+            }
+        }
 
         // Common files: compare hashes and modification dates
         var modToIPad: [ManifestEntry] = []
@@ -94,10 +107,10 @@ struct BidirectionalSyncEngine {
             toIPad: DiffResult(
                 added: addToIPad,
                 modified: modToIPad.sorted { $0.relativePath < $1.relativePath },
-                deleted: []  // 双方向同期で削除は別途慎重に扱う
+                deleted: delToIPad.sorted { $0.relativePath < $1.relativePath }
             ),
             toMac: DiffResult(
-                added: addToMac,
+                added: addToMac.sorted { $0.relativePath < $1.relativePath },
                 modified: modToMac.sorted { $0.relativePath < $1.relativePath },
                 deleted: []
             ),

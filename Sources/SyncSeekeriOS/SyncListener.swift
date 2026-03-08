@@ -26,6 +26,9 @@ public final class SyncListener: ObservableObject {
 
     public var receivedFilesCount: Int { receivedFiles.count }
 
+    // 双方向同期リクエスト受信時のコールバック
+    public var onBidirSyncRequested: ((NWEndpoint.Host, UInt16, UInt16) -> Void)?
+
     private var listener: NWListener?
     private let port: NWEndpoint.Port = 2345
     public let syncDirectory: URL
@@ -141,6 +144,15 @@ public final class SyncListener: ObservableObject {
         Task { @MainActor in
             do {
                 if data.isEmpty { return }
+
+                // BSYN フレーム（双方向同期開始）かチェック
+                if SyncFrameDecoder.isBidirInit(data) {
+                    let frame = try SyncFrameDecoder.decodeBidirInit(from: data)
+                    let host = NWEndpoint.Host(frame.macHost)
+                    onBidirSyncRequested?(host, frame.filePort, frame.manifestPort)
+                    statusText = "Bidirectional sync requested from \(frame.macHost)"
+                    return
+                }
 
                 let stream = try SyncFrameDecoder.decodeStream(data)
                 let fm = FileManager.default

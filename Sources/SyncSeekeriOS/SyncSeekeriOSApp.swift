@@ -1,5 +1,6 @@
 import SwiftUI
 import SyncSeeker
+import Network
 
 @main
 struct SyncSeekeriOSApp: App {
@@ -17,11 +18,39 @@ final class iPadState {
     var selectedDocument: SyncSeeker.Document?
     var searchText: String = ""
     var selectedFolderPath: URL?
+    var isSendingToMac: Bool = false
 
     let listener = SyncListener()
 
     init() {
         listener.start()
+        // 双方向同期リクエスト受信時のコールバック設定
+        listener.onBidirSyncRequested = { [weak self] macHost, filePort, manifestPort in
+            self?.startReverseSync(macHost: macHost, filePort: filePort, manifestPort: manifestPort)
+        }
+    }
+
+    /// iPad→Mac への逆同期を開始する
+    private func startReverseSync(macHost: NWEndpoint.Host, filePort: UInt16, manifestPort: UInt16) {
+        isSendingToMac = true
+        Task.detached {
+            do {
+                // Mac へマニフェストを送信
+                try ManifestSender().send(syncDirectory: self.listener.syncDirectory, to: macHost, port: manifestPort)
+                // Mac へファイルを送信
+                try FileSenderToMac().send(from: self.listener.syncDirectory, to: macHost, port: filePort)
+
+                await MainActor.run {
+                    self.isSendingToMac = false
+                    self.listener.statusText = "Sent to Mac"
+                }
+            } catch {
+                await MainActor.run {
+                    self.isSendingToMac = false
+                    self.listener.statusText = "Send error: \(error.localizedDescription)"
+                }
+            }
+        }
     }
 
     var allDocuments: [SyncSeeker.Document] {
@@ -156,14 +185,21 @@ struct iPadSidebarView: View {
                 }
             }
 
-            Section("受信") {
+            Section("同期") {
                 HStack {
                     Image(systemName: state.listener.isListening
                           ? "antenna.radiowaves.left.and.right"
                           : "antenna.radiowaves.left.and.right.slash")
                         .foregroundStyle(state.listener.isListening ? .green : .secondary)
-                    Text(state.listener.statusText)
-                        .font(.caption)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(state.listener.statusText)
+                            .font(.caption)
+                        if state.isSendingToMac {
+                            Text("Sending to Mac...")
+                                .font(.caption2)
+                                .foregroundStyle(.orange)
+                        }
+                    }
                 }
             }
         }

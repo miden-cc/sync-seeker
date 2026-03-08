@@ -8,6 +8,7 @@ public struct FileListView: View {
     public var folders: [Folder]
     public var onDuplicate: ((Document) -> Void)?
     public var onMove: ((Document, URL) -> Void)?
+    public var onDropFiles: (([URL]) -> Void)?
 
     @State private var documentToTrash: Document?
     @State private var showTrashAlert = false
@@ -19,7 +20,8 @@ public struct FileListView: View {
         onRename: ((Document, String) -> Void)? = nil,
         folders: [Folder] = [],
         onDuplicate: ((Document) -> Void)? = nil,
-        onMove: ((Document, URL) -> Void)? = nil
+        onMove: ((Document, URL) -> Void)? = nil,
+        onDropFiles: (([URL]) -> Void)? = nil
     ) {
         self.documents = documents
         self._selection = selection
@@ -28,6 +30,7 @@ public struct FileListView: View {
         self.folders = folders
         self.onDuplicate = onDuplicate
         self.onMove = onMove
+        self.onDropFiles = onDropFiles
     }
 
     public var body: some View {
@@ -89,6 +92,11 @@ public struct FileListView: View {
             }
         }
         .quickLookPreview(document: selection)
+        .dropDestination(for: URL.self) { urls, location in
+            guard !urls.isEmpty else { return false }
+            onDropFiles?(urls)
+            return true
+        }
     }
 
 #if os(macOS)
@@ -170,6 +178,7 @@ public struct FileRow: View {
             }
         }
         .padding(.vertical, 2)
+        .draggable(document)
     }
 
     private func startEditing() {

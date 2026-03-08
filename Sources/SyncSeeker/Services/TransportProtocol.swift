@@ -1,7 +1,7 @@
 import Foundation
 
 protocol TransportDelegate: AnyObject {
-    func transportDidUpdateProgress(_ progress: Double, currentFile: String)
+    func transportDidUpdateProgress(sent: Int, total: Int, currentFile: String)
     func transportDidComplete(fileCount: Int, totalBytes: Int64)
     func transportDidFail(error: String)
 }

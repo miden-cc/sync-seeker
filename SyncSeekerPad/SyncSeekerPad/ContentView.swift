@@ -60,25 +60,29 @@ final class SyncListener: ObservableObject {
     func start() {
         do {
             listener = try NWListener(using: .tcp, on: port)
-            listener?.stateUpdateHandler = { [weak self] state in
-                Task { @MainActor in
+            listener?.stateUpdateHandler = { state in
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
                     switch state {
                     case .ready:
-                        self?.isListening = true
-                        self?.statusText = "ポート \(self?.port.rawValue ?? 2345) で待機中..."
+                        self.isListening = true
+                        self.statusText = "ポート \(self.port.rawValue) で待機中..."
                     case .failed(let error):
-                        self?.statusText = "エラー: \(error.localizedDescription)"
-                        self?.stop()
+                        self.statusText = "エラー: \(error.localizedDescription)"
+                        self.stop()
                     case .cancelled:
-                        self?.isListening = false
-                        self?.statusText = "停止しました"
+                        self.isListening = false
+                        self.statusText = "停止しました"
                     default:
                         break
                     }
                 }
             }
-            listener?.newConnectionHandler = { [weak self] connection in
-                Task { @MainActor in self?.handleNewConnection(connection) }
+            listener?.newConnectionHandler = { connection in
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    self.handleNewConnection(connection)
+                }
             }
             listener?.start(queue: .global(qos: .userInitiated))
         } catch {
@@ -127,10 +131,12 @@ final class SyncListener: ObservableObject {
             var newData = accumulatedData
             if let content { newData.append(content) }
             if isComplete || error != nil {
-                Task { @MainActor in self.processReceivedData(newData) }
+                let dataToProcess = newData
+                Task { @MainActor in self.processReceivedData(dataToProcess) }
                 connection.cancel()
             } else {
-                Task { @MainActor in self.receiveNextChunk(on: connection, accumulatedData: newData) }
+                let dataForNextChunk = newData
+                Task { @MainActor in self.receiveNextChunk(on: connection, accumulatedData: dataForNextChunk) }
             }
         }
     }
@@ -206,12 +212,99 @@ final class PadState {
         }
         return docs
     }
+
+    // MARK: - File Actions
+
+    func renameFile(_ document: Document, to newName: String) throws {
+        let originalURL = document.path
+        let originalExtension = originalURL.pathExtension
+        let newExtension = (newName as NSString).pathExtension
+
+        var finalName = newName
+        if newExtension.isEmpty && !originalExtension.isEmpty {
+            finalName = (newName as NSString).appendingPathExtension(originalExtension) ?? newName
+        }
+
+        let newURL = originalURL.deletingLastPathComponent().appendingPathComponent(finalName)
+
+        guard originalURL != newURL else { return }
+
+        Task.detached {
+            try FileManager.default.moveItem(at: originalURL, to: newURL)
+            await MainActor.run {
+                self.listener.scanDirectory()
+            }
+        }
+    }
+
+    func trashFile(_ document: Document) throws {
+        let url = document.path
+
+        Task.detached {
+            var resultingURL: NSURL? = nil
+            do {
+                try FileManager.default.trashItem(at: url, resultingItemURL: &resultingURL)
+                await MainActor.run { [weak self] in
+                    guard let self else { return }
+                    if self.selectedDocument?.id == document.id {
+                        self.selectedDocument = nil
+                    }
+                    self.listener.scanDirectory()
+                }
+            } catch {
+                print("Failed to move to trash: \(error)")
+            }
+        }
+    }
+
+    func moveFile(_ document: Document, to destinationFolder: URL) async throws {
+        let sourceURL = document.path
+        let destinationURL = destinationFolder.appendingPathComponent(sourceURL.lastPathComponent)
+        try await Task.detached {
+            try FileManager.default.moveItem(at: sourceURL, to: destinationURL)
+        }.value
+        listener.scanDirectory()
+    }
+
+    func duplicateFile(_ document: Document) async throws {
+        let sourceURL = document.path
+        let nameWithoutExt = sourceURL.deletingPathExtension().lastPathComponent
+        let ext = sourceURL.pathExtension
+        let newName = ext.isEmpty ? "\(nameWithoutExt) copy" : "\(nameWithoutExt) copy.\(ext)"
+        let destinationURL = sourceURL.deletingLastPathComponent().appendingPathComponent(newName)
+        try await Task.detached {
+            try FileManager.default.copyItem(at: sourceURL, to: destinationURL)
+        }.value
+        listener.scanDirectory()
+    }
+
+    // MARK: - Folder Creation
+
+    func createFolder(named name: String, inside parent: URL? = nil) throws {
+        var baseName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if baseName.isEmpty { baseName = "New Folder" }
+
+        let parentURL = parent ?? listener.syncDirectory
+        var targetURL = parentURL.appendingPathComponent(baseName)
+
+        let fm = FileManager.default
+        var counter = 2
+        while fm.fileExists(atPath: targetURL.path) {
+            targetURL = parentURL.appendingPathComponent("\(baseName) \(counter)")
+            counter += 1
+        }
+
+        try fm.createDirectory(at: targetURL, withIntermediateDirectories: true)
+        listener.scanDirectory()
+    }
 }
 
 // MARK: - Root View
 
 struct ContentView: View {
     @State private var state = PadState()
+    @State private var showingNewFolderAlert = false
+    @State private var newFolderName = "New Folder"
 
     var body: some View {
         NavigationSplitView {
@@ -220,11 +313,19 @@ struct ContentView: View {
             FileListView(
                 documents: state.displayedDocuments,
                 selection: Bindable(state).selectedDocument,
-                onTrash: nil,
-                onRename: nil,
-                folders: [],
-                onDuplicate: nil,
-                onMove: nil
+                onTrash: { doc in
+                    try? state.trashFile(doc)
+                },
+                onRename: { doc, newName in
+                    try? state.renameFile(doc, to: newName)
+                },
+                folders: state.folders,
+                onDuplicate: { doc in
+                    Task { try? await state.duplicateFile(doc) }
+                },
+                onMove: { doc, destination in
+                    Task { try? await state.moveFile(doc, to: destination) }
+                }
             )
             .navigationTitle(sectionTitle)
             .searchable(text: Bindable(state).searchText, prompt: "ファイル名・タグで検索...")
@@ -237,6 +338,24 @@ struct ContentView: View {
                     systemImage: "doc.text.magnifyingglass",
                     description: Text("左のリストからドキュメントを選んでください")
                 )
+            }
+        }
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    newFolderName = "New Folder"
+                    showingNewFolderAlert = true
+                } label: {
+                    Label("New Folder", systemImage: "folder.badge.plus")
+                }
+                .keyboardShortcut("n", modifiers: [.shift, .command])
+            }
+        }
+        .alert("New Folder", isPresented: $showingNewFolderAlert) {
+            TextField("Folder Name", text: $newFolderName)
+            Button("Cancel", role: .cancel) { }
+            Button("Create") {
+                try? state.createFolder(named: newFolderName, inside: state.selectedFolderPath)
             }
         }
     }

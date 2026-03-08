@@ -71,9 +71,8 @@ final class QUICTransport: TransportProtocol, @unchecked Sendable {
 
                 totalBytes += Int64(fileData.count)
 
-                let progress = Double(index + 1) / Double(entries.count)
                 let path = entry.relativePath
-                notifyProgress(progress, file: path)
+                notifyProgress(sent: index + 1, total: entries.count, file: path)
             }
 
             guard !isCancelled else { return }
@@ -92,9 +91,9 @@ final class QUICTransport: TransportProtocol, @unchecked Sendable {
 
     // MARK: - Delegate dispatch (main queue)
 
-    private func notifyProgress(_ progress: Double, file: String) {
+    private func notifyProgress(sent: Int, total: Int, file: String) {
         let d = delegate
-        DispatchQueue.main.async { d?.transportDidUpdateProgress(progress, currentFile: file) }
+        DispatchQueue.main.async { d?.transportDidUpdateProgress(sent: sent, total: total, currentFile: file) }
     }
 
     private func notifyComplete(fileCount: Int, totalBytes: Int64) {

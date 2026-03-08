@@ -107,7 +107,10 @@ enum UsbmuxdPacket {
                 throw UsbmuxdError.invalidPacket("Missing DeviceID in Attached message (keys: \(keys))")
             }
 
-            let props = plist["Properties"] as? [String: Any] ?? [:]
+            guard let props = plist["Properties"] as? [String: Any] else {
+                throw UsbmuxdError.invalidPacket("Missing Properties in Attached message")
+            }
+            
             let serial = props["SerialNumber"] as? String
                       ?? plist["SerialNumber"] as? String
                       ?? ""

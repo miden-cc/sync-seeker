@@ -26,7 +26,7 @@ final class TransferViewModel: TransportDelegate, @unchecked Sendable {
         }
 
         let toTransfer = diff.added + diff.modified
-        state = .transferring(progress: 0.0, currentFile: toTransfer.first?.relativePath ?? "")
+        state = .transferring(sent: 0, total: toTransfer.count, currentFile: toTransfer.first?.relativePath ?? "")
 
         do {
             try transport.transferFiles(toTransfer, from: source.rootPath)
@@ -42,8 +42,8 @@ final class TransferViewModel: TransportDelegate, @unchecked Sendable {
 
     // MARK: - TransportDelegate
 
-    func transportDidUpdateProgress(_ progress: Double, currentFile: String) {
-        state = .transferring(progress: progress, currentFile: currentFile)
+    func transportDidUpdateProgress(sent: Int, total: Int, currentFile: String) {
+        state = .transferring(sent: sent, total: total, currentFile: currentFile)
     }
 
     func transportDidComplete(fileCount: Int, totalBytes: Int64) {

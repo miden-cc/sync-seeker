@@ -34,8 +34,8 @@ public struct MenuBarState {
 
     public var statusText: String {
         switch transfer {
-        case .transferring(let progress, let file):
-            let pct = Int(progress * 100)
+        case .transferring(let sent, let total, let file):
+            let pct = total > 0 ? Int(Double(sent) / Double(total) * 100) : 0
             return "Syncing \(file) (\(pct)%)"
         case .completed(let count, _):
             return "Synced \(count) file(s)."

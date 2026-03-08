@@ -11,11 +11,26 @@ import Foundation
 /// DELT    = path_length(4:UInt32 LE) + path(UTF-8)
 /// DONE    = "DONE"(4)
 /// ```
-enum SyncFrameEncoder {
+public enum SyncFrameEncoder {
+
+    // MARK: - BSYN (Bidirectional Sync Init)
+
+    /// 双方向同期開始シグナル。iPad に Mac の IP/ホスト名を通知する。
+    /// フレーム構造: "BSYN"(4) + hostLen(2:UInt16 LE) + host(UTF-8) + filePort(2:UInt16 LE) + manifestPort(2:UInt16 LE)
+    public static func encodeBidirInit(macHost: String, filePort: UInt16 = 2346, manifestPort: UInt16 = 2347) -> Data {
+        let hostBytes = Data(macHost.utf8)
+        var data = Data(capacity: 4 + 2 + hostBytes.count + 2 + 2)
+        data += "BSYN".data(using: .utf8)!
+        data += uint16LE(UInt16(hostBytes.count))
+        data += hostBytes
+        data += uint16LE(filePort)
+        data += uint16LE(manifestPort)
+        return data
+    }
 
     // MARK: - Header / Done
 
-    static func encodeHeader(fileCount: Int, deleteCount: Int = 0) -> Data {
+    public static func encodeHeader(fileCount: Int, deleteCount: Int = 0) -> Data {
         var data = Data(capacity: 12)
         data += "SYNC".data(using: .utf8)!
         data += uint32LE(UInt32(fileCount))
@@ -23,14 +38,14 @@ enum SyncFrameEncoder {
         return data
     }
 
-    static func encodeDone() -> Data {
+    public static func encodeDone() -> Data {
         return "DONE".data(using: .utf8)!
     }
 
     // MARK: - Deletion frame
 
     /// 削除対象のパスをエンコードする。
-    static func encodeDeletion(path: String) -> Data {
+    public static func encodeDeletion(path: String) -> Data {
         let pathBytes = Data(path.utf8)
         var frame = Data(capacity: 4 + pathBytes.count)
         frame += uint32LE(UInt32(pathBytes.count))
@@ -45,7 +60,7 @@ enum SyncFrameEncoder {
     ///   - entry: マニフェストエントリ（パス・サイズ情報）
     ///   - fileData: ファイルの生バイト列
     ///   - xattrs: キー → 値 の xattr マップ（空可）
-    static func encodeFile(
+    public static func encodeFile(
         entry: ManifestEntry,
         fileData: Data,
         xattrs: [String: Data]
@@ -72,6 +87,11 @@ enum SyncFrameEncoder {
     }
 
     // MARK: - Utilities
+
+    static func uint16LE(_ v: UInt16) -> Data {
+        var n = v.littleEndian
+        return Data(bytes: &n, count: 2)
+    }
 
     private static func uint32LE(_ v: UInt32) -> Data {
         var n = v.littleEndian

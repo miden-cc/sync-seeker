@@ -25,8 +25,8 @@ final class MockTransport: TransportProtocol {
 
     // MARK: - Simulation
 
-    func simulateProgress(_ progress: Double, file: String) {
-        delegate?.transportDidUpdateProgress(progress, currentFile: file)
+    func simulateProgress(sent: Int, total: Int, file: String) {
+        delegate?.transportDidUpdateProgress(sent: sent, total: total, currentFile: file)
     }
 
     func simulateComplete(fileCount: Int, totalBytes: Int64) {

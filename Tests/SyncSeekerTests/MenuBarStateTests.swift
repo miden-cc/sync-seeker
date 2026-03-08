@@ -37,7 +37,7 @@ struct MenuBarStateTests {
         let device = USBDeviceInfo(id: 1, serialNumber: "A", productName: "iPad", connectionType: .usb)
         let state = MenuBarState(
             connection: .connected(device),
-            transfer: .transferring(progress: 0.5, currentFile: "test.pdf"),
+            transfer: .transferring(sent: 1, total: 2, currentFile: "test.pdf"),
             lastSyncDate: nil
         )
         #expect(state.iconName == "arrow.up.arrow.down.circle.fill")
@@ -63,7 +63,7 @@ struct MenuBarStateTests {
         let device = USBDeviceInfo(id: 1, serialNumber: "A", productName: "iPad", connectionType: .usb)
         let state = MenuBarState(
             connection: .connected(device),
-            transfer: .transferring(progress: 0.75, currentFile: "report.pdf"),
+            transfer: .transferring(sent: 3, total: 4, currentFile: "report.pdf"),
             lastSyncDate: nil
         )
         #expect(state.statusText.contains("75%") || state.statusText.contains("report.pdf"))
@@ -94,7 +94,7 @@ struct MenuBarStateTests {
         let device = USBDeviceInfo(id: 1, serialNumber: "A", productName: "iPad", connectionType: .usb)
         let state = MenuBarState(
             connection: .connected(device),
-            transfer: .transferring(progress: 0.5, currentFile: "x.pdf"),
+            transfer: .transferring(sent: 1, total: 2, currentFile: "x.pdf"),
             lastSyncDate: nil
         )
         #expect(state.availableActions.contains(.cancelSync))

@@ -62,8 +62,13 @@ public struct DocumentPreviewView: View {
                     }
                 } else if document.fileType == .pdf {
                     GroupBox("プレビュー") {
+#if os(macOS)
                         Text("PDF プレビューは今後実装予定")
                             .foregroundStyle(.secondary)
+#else
+                        QLPreviewView(url: document.path)
+                            .frame(minHeight: 400, idealHeight: 600)
+#endif
                     }
                 }
             }

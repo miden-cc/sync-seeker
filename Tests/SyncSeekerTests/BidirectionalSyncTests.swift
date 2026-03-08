@@ -49,6 +49,7 @@ struct BidirectionalSyncTests {
         )
 
         #expect(plan.toMac.added.count == 1)
+        #expect(plan.toMac.added.count == 1)
         #expect(plan.toIPad.added.isEmpty)
         #expect(plan.conflicts.isEmpty)
     }

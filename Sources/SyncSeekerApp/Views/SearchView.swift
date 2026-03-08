@@ -31,6 +31,9 @@ struct SearchView: View {
                 },
                 onMove: { doc, destination in
                     Task { try? await state.moveFile(doc, to: destination) }
+                },
+                onDropFiles: { urls in
+                    state.importFiles(urls: urls, to: state.selectedFolderPath)
                 }
             )
             .navigationTitle(sectionTitle)
@@ -114,10 +117,17 @@ struct SidebarView: View {
                     Text(state.menuBarState.statusText)
                         .font(.caption)
                 }
-                if case .transferring(let progress, let file) = state.transferState {
+                
+
+                if case .transferring(let sent, let total, let file) = state.transferState {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(file).font(.caption2).lineLimit(1)
-                        ProgressView(value: progress)
+                        if total > 0 {
+                            ProgressView(value: Double(sent), total: Double(total))
+                        } else {
+                            ProgressView()
+                        }
+                        Text("\(sent) / \(total)").font(.caption2).foregroundStyle(.secondary)
                     }
                 }
             }

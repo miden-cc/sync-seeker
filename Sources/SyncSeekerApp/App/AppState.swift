@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 import OSLog
 import SyncSeeker
+import Network
 
 #if os(macOS)
 @Observable @MainActor
@@ -12,6 +13,8 @@ final class AppState {
     var folders: [SyncSeeker.Folder] = []
     var selectedFolderPath: URL?
     let syncFolderPath: URL
+
+
 
     // Connection & transfer state
     var connectionState: ConnectionState = .disconnected
@@ -69,6 +72,7 @@ final class AppState {
             try? await Task.sleep(nanoseconds: 500_000_000)
             if !Task.isCancelled {
                 self.loadAll()
+                self.startAutoSync()
             }
         }
     }
@@ -114,14 +118,47 @@ final class AppState {
             return
         }
         transferState = .scanning
+
+        // MainActor から値をキャプチャ
+        let macHost = localUSBNetworkIP()
+        let syncPath = syncFolderPath
+        let lastSync = lastSyncDate
+
         Task.detached { [weak self] in
             guard let self else { return }
             do {
+                // 1. Receivers 起動
+                let fileReceiver = FileReceiver()
+                let manifestReceiver = ManifestReceiver()
+                fileReceiver.start(destination: syncPath)
+                manifestReceiver.start()
+
+                // 2. BSYN シグナル送信
+                try FileSender().sendBidirInit(to: device, macHost: macHost)
+
+                // 3. iPad マニフェスト受信待ち (15秒タイムアウト)
+                let iPadManifest = try await self.waitForManifest(manifestReceiver, timeout: 15)
+
+                // 4. 差分計算
+                let macManifest = try ManifestBuilder().buildManifest(at: syncPath)
+                let plan = BidirectionalSyncEngine().computeSyncPlan(mac: macManifest, iPad: iPadManifest, lastSync: lastSync)
+
+                // 5. Mac→iPad 送信
                 let sender = FileSender()
-                let count = try sender.send(to: device, from: syncFolderPath)
+                let count = try sender.send(to: device, from: syncPath, plan: plan.toIPad, onProgress: { sent, total, file in
+                    Task { @MainActor [weak self] in
+                        self?.transferState = .transferring(sent: sent, total: total, currentFile: file)
+                    }
+                })
+
+                // 6. iPad→Mac 受信完了待ち (60秒タイムアウト)
+                try await fileReceiver.waitForCompletion(timeout: 60)
+
+                // 7. 後処理
                 await MainActor.run {
                     self.transferState = .completed(fileCount: count, totalBytes: 0)
                     self.lastSyncDate = Date()
+                    self.loadAll()
                 }
             } catch {
                 await MainActor.run {
@@ -129,6 +166,40 @@ final class AppState {
                 }
             }
         }
+    }
+
+    /// 双方向同期計画を使用したファイル送信（plan パラメータ版）
+    /// - Returns: 送信したファイル数
+    private nonisolated func sendWithPlan(to device: USBDeviceInfo, from syncPath: URL, plan: DiffResult, onProgress: ((_ sent: Int, _ total: Int, _ currentFile: String) -> Void)? = nil) throws -> Int {
+        let sender = FileSender()
+        return try sender.send(to: device, from: syncPath, plan: plan, onProgress: onProgress)
+    }
+
+    private nonisolated func waitForManifest(_ receiver: ManifestReceiver, timeout: TimeInterval) async throws -> FileManifest {
+        var receivedManifest: FileManifest?
+        let semaphore = DispatchSemaphore(value: 0)
+
+        receiver.onManifestReceived = { manifest in
+            receivedManifest = manifest
+            semaphore.signal()
+        }
+
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if let manifest = receivedManifest {
+                receiver.stop()
+                return manifest
+            }
+            try? await Task.sleep(nanoseconds: 100_000_000)
+        }
+        receiver.stop()
+        throw NSError(domain: "AppState", code: -1, userInfo: [NSLocalizedDescriptionKey: "iPad manifest receive timeout"])
+    }
+
+    private nonisolated func localUSBNetworkIP() -> String {
+        // TODO: getifaddrs() で en/an 系インターフェースの IPv4 を取得
+        // 今は fallback で "127.0.0.1" を返す
+        return "127.0.0.1"
     }
 
     func cancelSync() {
@@ -186,6 +257,46 @@ final class AppState {
 
         try fm.createDirectory(at: targetURL, withIntermediateDirectories: true)
         loadAll()
+    }
+
+    // MARK: - Import (Drop-In)
+
+    func importFiles(urls: [URL], to folder: URL?) {
+        let destinationFolder = folder ?? syncFolderPath
+        let fm = FileManager.default
+
+        Task.detached { [weak self] in
+            var changed = false
+            for url in urls {
+                // Ignore items already in the target folder
+                guard url.deletingLastPathComponent().standardized != destinationFolder.standardized else { continue }
+                
+                let fileName = url.lastPathComponent
+                var targetURL = destinationFolder.appendingPathComponent(fileName)
+                
+                // Auto-rename if duplicate exists
+                var counter = 2
+                while fm.fileExists(atPath: targetURL.path) {
+                    let ext = url.pathExtension
+                    let base = url.deletingPathExtension().lastPathComponent
+                    let appended = ext.isEmpty ? "\(base) \(counter)" : "\(base) \(counter).\(ext)"
+                    targetURL = destinationFolder.appendingPathComponent(appended)
+                    counter += 1
+                }
+                
+                do {
+                    try fm.copyItem(at: url, to: targetURL)
+                    changed = true
+                } catch {
+                    // Ignore individual copy failures
+                }
+            }
+            if changed {
+                Task { @MainActor [weak self] in
+                    self?.loadAll()
+                }
+            }
+        }
     }
 
     // MARK: - Filtering

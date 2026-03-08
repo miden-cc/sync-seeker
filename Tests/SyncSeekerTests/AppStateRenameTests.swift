@@ -11,7 +11,8 @@ struct AppStateRenameTests {
         let appState = AppState()
         let syncFolder = appState.syncFolderPath
 
-        let testFileURL = syncFolder.appendingPathComponent("test_rename_doc.txt")
+        let uniqueID = UUID().uuidString
+        let testFileURL = syncFolder.appendingPathComponent("test_rename_doc_\(uniqueID).txt")
         let content = "Hello World"
         try content.write(to: testFileURL, atomically: true, encoding: .utf8)
 

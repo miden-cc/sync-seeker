@@ -67,9 +67,9 @@ struct TransferViewModelTests {
         let dest = TestFixtures.manifest(root: TestFixtures.destURL, entries: [])
 
         vm.startSync(source: source, destination: dest)
-        mock.simulateProgress(0.5, file: "docs/plan.pdf")
+        mock.simulateProgress(sent: 1, total: 2, file: "docs/plan.pdf")
 
-        #expect(vm.state == .transferring(progress: 0.5, currentFile: "docs/plan.pdf"))
+        #expect(vm.state == .transferring(sent: 1, total: 2, currentFile: "docs/plan.pdf"))
     }
 
     @Test("Completion from transport")

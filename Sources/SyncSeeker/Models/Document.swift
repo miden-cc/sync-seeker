@@ -1,4 +1,5 @@
 import Foundation
+import CoreTransferable
 
 public enum FileType: String, Codable, CaseIterable, Hashable, Sendable {
     case pdf
@@ -27,5 +28,14 @@ public struct Document: Identifiable, Equatable, Hashable, Sendable {
         self.fileType = fileType
         self.tags = tags
         self.summary = summary
+    }
+}
+
+@available(macOS 13.0, iOS 16.0, *)
+extension Document: Transferable {
+    public static var transferRepresentation: some TransferRepresentation {
+        FileRepresentation(exportedContentType: .data) { document in
+            SentTransferredFile(document.path)
+        }
     }
 }

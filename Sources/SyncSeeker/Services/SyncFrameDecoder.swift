@@ -7,9 +7,16 @@ public enum SyncFrameDecoderError: Error {
     case dataTooShort(expected: Int, got: Int)
     case invalidPath
     case invalidXattrPlist
+    case invalidBidirFrame
 }
 
 // MARK: - Decoded types
+
+public struct BidirInitFrame {
+    public let macHost: String
+    public let filePort: UInt16
+    public let manifestPort: UInt16
+}
 
 public struct SyncHeader {
     public let fileCount: Int
@@ -31,6 +38,38 @@ public struct DecodedStream {
 
 /// `SyncFrameEncoder` が生成したワイヤーフォーマットをデコードする（iPad 側レシーバー用）。
 public enum SyncFrameDecoder {
+
+    // MARK: - BSYN frame
+
+    /// データが BSYN フレームかどうかを判定する（先頭 4 バイトチェック）
+    public static func isBidirInit(_ data: Data) -> Bool {
+        data.count >= 4 && data.prefix(4) == Data("BSYN".utf8)
+    }
+
+    /// BSYN フレームをデコードする
+    public static func decodeBidirInit(from data: Data) throws -> BidirInitFrame {
+        guard data.count >= 8 else {
+            throw SyncFrameDecoderError.dataTooShort(expected: 8, got: data.count)
+        }
+        guard data.prefix(4) == Data("BSYN".utf8) else {
+            throw SyncFrameDecoderError.invalidBidirFrame
+        }
+
+        let hostLen = Int(readUInt16(from: data, at: 4))
+        guard data.count >= 6 + hostLen + 4 else {
+            throw SyncFrameDecoderError.dataTooShort(expected: 6 + hostLen + 4, got: data.count)
+        }
+
+        let hostBytes = data.subdata(in: 6..<(6 + hostLen))
+        guard let host = String(data: hostBytes, encoding: .utf8) else {
+            throw SyncFrameDecoderError.invalidPath
+        }
+
+        let filePort = readUInt16(from: data, at: 6 + hostLen)
+        let manifestPort = readUInt16(from: data, at: 6 + hostLen + 2)
+
+        return BidirInitFrame(macHost: host, filePort: filePort, manifestPort: manifestPort)
+    }
 
     // MARK: - Header
 
@@ -98,11 +137,15 @@ public enum SyncFrameDecoder {
             let remaining = data.subdata(in: offset..<data.count)
             let frame = try decodeFileFrame(from: remaining)
 
-            // Advance offset by the consumed bytes
-            let pathLen = Int(readUInt32(from: data, at: offset))
-            let fileSize = Int(readUInt64(from: data, at: offset + 4 + pathLen))
-            let xattrLen = Int(readUInt32(from: data, at: offset + 4 + pathLen + 8 + fileSize))
-            offset += 4 + pathLen + 8 + fileSize + 4 + xattrLen
+            // Advance offset by the exact consumed bytes in this frame
+            let frameSize = 4 + frame.relativePath.utf8.count + 8 + frame.fileData.count + 4 + (frame.xattrs.isEmpty ? 0 : try PropertyListSerialization.data(fromPropertyList: frame.xattrs, format: .binary, options: 0).count)
+            // It's safer to just rely on the read logic itself. Let's make `decodeFileFrame` return the consumed size.
+            // Actually, we can just use the properties of the decoded frame.
+            let pathLen = frame.relativePath.utf8.count
+            let fileLen = frame.fileData.count
+            // To get the exact xattr length as encoded:
+            let xattrLen = Int(readUInt32(from: data, at: offset + 4 + pathLen + 8 + fileLen))
+            offset += 4 + pathLen + 8 + fileLen + 4 + xattrLen
 
             files.append(frame)
         }
@@ -156,6 +199,14 @@ public enum SyncFrameDecoder {
         let bytes = data.subdata(in: offset..<(offset + count))
         offset += count
         return bytes
+    }
+
+    private static func readUInt16(from data: Data, at offset: Int) -> UInt16 {
+        var value: UInt16 = 0
+        _ = withUnsafeMutableBytes(of: &value) { dst in
+            data.copyBytes(to: dst, from: offset..<(offset + 2))
+        }
+        return UInt16(littleEndian: value)
     }
 
     private static func readUInt32(from data: Data, at offset: Int) -> UInt32 {

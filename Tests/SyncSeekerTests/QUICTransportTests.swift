@@ -122,7 +122,8 @@ struct QUICTransportTests {
         Thread.sleep(forTimeInterval: 0.15)
 
         #expect(spy.progressUpdates.count == 2)
-        #expect(spy.progressUpdates.last?.progress == 1.0)
+        #expect(spy.progressUpdates.last?.sent == 2)
+        #expect(spy.progressUpdates.last?.total == 2)
     }
 
     @Test("Delegate progress filenames match entries")
@@ -259,7 +260,8 @@ struct QUICTransportTests {
 
 private final class SpyTransportDelegate: TransportDelegate {
     struct ProgressEvent {
-        let progress: Double
+        let sent: Int
+        let total: Int
         let file: String
     }
 
@@ -268,8 +270,8 @@ private final class SpyTransportDelegate: TransportDelegate {
     var completedTotalBytes: Int64?
     var failureMessage: String?
 
-    func transportDidUpdateProgress(_ progress: Double, currentFile: String) {
-        progressUpdates.append(ProgressEvent(progress: progress, file: currentFile))
+    func transportDidUpdateProgress(sent: Int, total: Int, currentFile: String) {
+        progressUpdates.append(ProgressEvent(sent: sent, total: total, file: currentFile))
     }
     func transportDidComplete(fileCount: Int, totalBytes: Int64) {
         completedFileCount = fileCount
